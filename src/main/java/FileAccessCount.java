@@ -16,7 +16,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 public class FileAccessCount {
-	public static class TokenizerMapper extends Mapper<Object, Text, Text, Text>{
+	public static class TokenizerMapper extends Mapper<Object, Text, Text, IntWritable>{
 		
 		private final static IntWritable one = new IntWritable(1);
 		private Text word = new Text();
@@ -36,50 +36,56 @@ public class FileAccessCount {
 			}
 		
 			word.set(ip + "," + finalName);
-			
-			context.write(word, new Text(date));
+			IntWritable one = new IntWritable(1);
+//			context.write(word, new Text(date));
+			context.write(word, one);
 								
 			
 		}
 	}
 	
-	public static class IntSumReducer extends Reducer<Text,Text,Text,Text>{
+	public static class IntSumReducer extends Reducer<Text,IntWritable,Text,IntWritable>{
 		private IntWritable result = new IntWritable();
 		private static final Log LOG = LogFactory.getLog(IntSumReducer.class);
 		
-		private MultipleOutputs<Text, IntWritable> mos;
+
 		
-		public void setup(Context context) {
-			 mos = new MultipleOutputs(context);
-		 }
-		
-		public void reduce(Text key, Iterable<Text> values, Context context) throws IOException, InterruptedException {
-			ArrayList<Text> dates = new ArrayList<>();
+		public void reduce(Text key, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
 			int sum = 0;
-			for (Text val : values) {
-				int s = 0;
-				for(Text date : dates) {
-					if(date.equals(val)) {
-						s++;
-					}
-				}
-				if(s==0)
-				{
-					sum++;
-					dates.add(val);
-				}
+			for (IntWritable val : values) {
+			 sum += val.get();
 			}
-			
-			
 			result.set(sum);
-			LOG.info("Sum:  " + sum);
-			LOG.info("Key: " + key);
-//			mos.write("lol", key, result, "~/Exercise1/test_log");
+
+//			IntWritable one = new IntWritable(1);
 			
-			if(sum>1)
-			{
-				context.write(key,new Text(result.toString()));
-			}
+			context.write(key, result);
+			
+//			ArrayList<Text> dates = new ArrayList<>();
+//			int sum = 0;
+//			for (Text val : values) {
+//				int s = 0;
+//				for(Text date : dates) {
+//					if(date.equals(val)) {
+//						s++;
+//					}
+//				}
+//				if(s==0)
+//				{
+//					sum++;
+//					dates.add(val);
+//				}
+//			}
+//			
+//			
+//			result.set(sum);
+//			LOG.info("Sum:  " + sum);
+//			LOG.info("Key: " + key);
+//			
+//			if(sum>1)
+//			{
+//				context.write(key,new Text(result.toString()));
+//			}
 //			result.set(sum);
 //			
 //			IntWritable one = new IntWritable(1);
@@ -87,10 +93,7 @@ public class FileAccessCount {
 //			if(result.compareTo(one) == 1)
 				
 		}
-		
-		 public void cleanup(Context context) throws IOException, InterruptedException {
-			 mos.close();
-		 }
+
 	}
 	
 	public static void main(String[] args) throws Exception {
@@ -101,7 +104,7 @@ public class FileAccessCount {
 	    job.setCombinerClass(IntSumReducer.class);
 	    job.setReducerClass(IntSumReducer.class);
 	    job.setOutputKeyClass(Text.class);
-	    job.setOutputValueClass(Text.class);
+	    job.setOutputValueClass(IntWritable.class);
 	    FileInputFormat.addInputPath(job, new Path(args[0]));
 	    FileOutputFormat.setOutputPath(job, new Path(args[1]));
 	    System.exit(job.waitForCompletion(true) ? 0 : 1);
