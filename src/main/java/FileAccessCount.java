@@ -11,6 +11,9 @@ import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.apache.hadoop.mapreduce.lib.output.MultipleOutputs;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 
 public class FileAccessCount {
 	public static class TokenizerMapper extends Mapper<Object, Text, Text, Text>{
@@ -40,8 +43,15 @@ public class FileAccessCount {
 		}
 	}
 	
-	public static class IntSumReducer extends Reducer<Text,IntWritable,Text,Text>{
+	public static class IntSumReducer extends Reducer<Text,Text,Text,Text>{
 		private IntWritable result = new IntWritable();
+		private static final Log LOG = LogFactory.getLog(IntSumReducer.class);
+		
+		private MultipleOutputs<Text, IntWritable> mos;
+		
+		public void setup(Context context) {
+			 mos = new MultipleOutputs(context);
+		 }
 		
 		public void reduce(Text key, Iterable<Text> values, Context context) throws IOException, InterruptedException {
 			ArrayList<Text> dates = new ArrayList<>();
@@ -53,15 +63,22 @@ public class FileAccessCount {
 						s++;
 					}
 				}
-				if(s>0)
+				if(s==0)
 				{
 					sum++;
+					dates.add(val);
 				}
 			}
 			
+			
+			result.set(sum);
+			LOG.info("Sum:  " + sum);
+			LOG.info("Key: " + key);
+//			mos.write("lol", key, result, "~/Exercise1/test_log");
+			
 			if(sum>1)
 			{
-				context.write(key, new Text(" "));
+				context.write(key,new Text(result.toString()));
 			}
 //			result.set(sum);
 //			
@@ -70,6 +87,10 @@ public class FileAccessCount {
 //			if(result.compareTo(one) == 1)
 				
 		}
+		
+		 public void cleanup(Context context) throws IOException, InterruptedException {
+			 mos.close();
+		 }
 	}
 	
 	public static void main(String[] args) throws Exception {
